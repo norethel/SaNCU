@@ -9,10 +9,6 @@
 #include <iostream>
 #include <cstring>
 
-const std::string VOICE_FILE = "/home/norethel/wav_files/voice.wav";
-const std::string NOISE_FILE = "/home/norethel/wav_files/noise.wav";
-const std::string MIXED_FILE = "/home/norethel/wav_files/mixed.wav";
-
 const size_t BUFFER_SIZE = 1024;
 
 static double voice_buffer[BUFFER_SIZE];
@@ -20,7 +16,7 @@ static double noise_buffer[BUFFER_SIZE];
 
 int main(int argc, char **argv)
 {
-	SndfileHandle voice_file(VOICE_FILE, SFM_READ,
+	/*SndfileHandle voice_file(VOICE_FILE, SFM_READ,
 	        SF_FORMAT_WAV | SF_FORMAT_PCM_16, 1, 16000);
 
 	SndfileHandle noise_file(NOISE_FILE, SFM_READ,
@@ -44,7 +40,7 @@ int main(int argc, char **argv)
 
 		mixed_file.write(voice_buffer, voice_read_bytes);
 	}
-	while (voice_read_bytes > 0 && noise_read_bytes > 0);
+	while (voice_read_bytes > 0 && noise_read_bytes > 0);*/
 
 	return 0;
 }
