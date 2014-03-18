@@ -11,11 +11,32 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <cstring>
+#include <iostream>
+#include <sndfile.hh>
+#include <sancu_signal.hh>
+#include <sancu_sample.hh>
 
 SancuAdder::SancuAdder(const std::string& _script_file) :
-		script_file(_script_file), Esig(0), Enoise(0), snr_ratio(0)
+		script_file(_script_file)
 {
 	parse_script_file();
+}
+
+SancuAdder::~SancuAdder()
+{
+	std::vector<SancuSignal*>::iterator voice_sig_iter = voice_signals.begin();
+	std::vector<SancuSignal*>::iterator noise_sig_iter = noise_signals.begin();
+
+	for (; voice_sig_iter != voice_signals.end(); ++voice_sig_iter)
+	{
+		delete *voice_sig_iter;
+	}
+
+	for (; noise_sig_iter != noise_signals.end(); ++noise_sig_iter)
+	{
+		delete *noise_sig_iter;
+	}
 }
 
 void SancuAdder::parse_snr(std::string& _line)
@@ -28,7 +49,7 @@ void SancuAdder::parse_snr(std::string& _line)
 
 	do
 	{
-		current = strtok(static_cast<char*>(_line.c_str()), ",");
+		current = strtok(const_cast<char*>(_line.c_str()), ",");
 		converter << current;
 		converter >> snr;
 		snr_levels.push_back(snr);
@@ -58,17 +79,6 @@ void SancuAdder::parse_noise(std::ifstream& fscript)
 	}
 }
 
-void SancuAdder::parse_result(std::ifstream& fscript)
-{
-	std::string line;
-
-	while (std::getline(fscript, line)
-	        && std::string::npos == line.find("</result>"))
-	{
-		result_files.push_back(line);
-	}
-}
-
 void SancuAdder::parse_script_file()
 {
 	std::ifstream fscript(script_file.c_str());
@@ -91,73 +101,116 @@ void SancuAdder::parse_script_file()
 		{
 			parse_noise(fscript);
 		}
-		else if (std::string::npos != line.find("<result>"))
+		else
 		{
-			parse_result(fscript);
+			std::cout << "parse warning: unknown line:" << std::endl;
+			std::cout << "\"" << line.c_str() << "\"" << std::endl;
 		}
 	}
 
 	fscript.close();
 }
 
-void read_files(SndfileHandle& voice_file, SndfileHandle& noise_file)
+void SancuAdder::modify_path(std::string& path, size_t snr_num,
+        size_t noise_num)
 {
-	size_t voice_read = 0;
+	std::stringstream ss;
+	std::string postfix;
 
-	do
+	ss << "_" << snr_num << "_" << noise_num;
+	ss >> postfix;
+
+	path.insert(path.length() - 4, postfix);
+}
+
+void SancuAdder::prepare_data()
+{
+	std::vector<double>::iterator iter = snr_levels.begin();
+
+	while (iter != snr_levels.end())
 	{
-		double* voice_buffer = new double[BUFFER_SIZE];
-		double* noise_buffer = new double[BUFFER_SIZE];
-
-		voice_read = voice_file.read(voice_buffer, BUFFER_SIZE);
-		size_t noise_read = noise_file.read(noise_buffer, BUFFER_SIZE);
-
-		if (noise_read < voice_read)
-		{
-			noise_file.seek(0, SEEK_SET);
-			noise_read = noise_file.read(noise_buffer, BUFFER_SIZE);
-		}
-
-		for (size_t i = 0; i < voice_read; ++i)
-		{
-			Esig += std::pow(voice_buffer[i], 2.0);
-			Enoise += std::pow(noise_buffer[i], 2.0);
-		}
-
-		voice_signal.push_back(voice_buffer);
-		noise_signal.push_back(noise_buffer);
+		snr_ratios.push_back(
+		        std::pow(SNR_CONST_RATIO, (*iter / SNR_CONST_RATIO)));
 	}
-	while (voice_read > 0);
+
+	std::vector<std::string>::iterator voice_iter = voice_files.begin();
+
+	while (voice_iter != voice_files.end())
+	{
+		voice_signals.push_back(new SancuSignal(*voice_iter, true));
+		++voice_iter;
+	}
+
+	std::vector<std::string>::iterator noise_iter = noise_files.begin();
+
+	while (noise_iter != noise_files.end())
+	{
+		noise_signals.push_back(new SancuSignal(*noise_iter, false));
+		++noise_iter;
+	}
+}
+
+void SancuAdder::recalculate_data()
+{
+	std::vector<double>::iterator snr_iter = snr_ratios.begin();
+	size_t snr_num = 0;
+	size_t noise_num = 0;
+
+	/* for every snr_ratio */
+	for (; snr_iter != snr_ratios.end(); ++snr_iter)
+	{
+		++snr_num;
+		std::vector<SancuSignal*>::iterator noise_iter = noise_signals.begin();
+
+		/* for every noise */
+		for (; noise_iter != noise_signals.end(); ++noise_iter)
+		{
+			SancuSampleReader noise_reader(*noise_iter);
+			++noise_num;
+
+			std::vector<SancuSignal*>::iterator voice_iter =
+			        voice_signals.begin();
+
+			/* for every voice signal */
+			for (; voice_iter != voice_signals.end(); ++voice_iter)
+			{
+				/* 1. copy the signal */
+				SancuSignal* voice_sig = new SancuSignal(**voice_iter);
+				/* modify output signal path */
+				modify_path(voice_sig->path, snr_num, noise_num);
+
+				size_t num_chunks = voice_sig->chunks.size();
+				size_t last_chunk_size = voice_sig->chunks.back()->length;
+
+				/* 2. read noise sample of the same length as current voice signal */
+				std::vector<TSampleChunk> chunks = noise_reader.read(num_chunks,
+				        last_chunk_size);
+
+				/* the constructor also computes the energy of the read noise sample */
+				SancuSample noise_sample(chunks);
+
+				/* 3. compute SNR coefficient for current noise and voice */
+				double snr_level = ((*snr_iter) * noise_sample.energy)
+				        / voice_sig->energy;
+
+				/* 4. multiply voice signal by calculated coefficient */
+				*voice_sig *= snr_level;
+
+				/* 5. add noise to voice signal */
+				*voice_sig += noise_sample;
+
+				/* write back the signal */
+
+				/* delete current voice_sig */
+				delete voice_sig;
+			}
+		}
+	}
 }
 
 void SancuAdder::execute()
 {
-	std::list<double>::iterator iter = snr_levels.begin();
-
-	while (iter != snr_levels.end())
-	{
-		std::list<std::string>::iterator noise_iter = noise_files.begin();
-
-		snr_ratio = std::pow(SNR_CONST_RATIO, (*iter / SNR_CONST_RATIO));
-
-		while (noise_iter != noise_files.end())
-		{
-			std::list<std::string>::iterator voice_iter = voice_files.begin();
-
-			SndfileHandle noise_file(*noise_iter);
-
-			while (voice_iter != voice_files.end())
-			{
-				SndfileHandle voice_file(*voice_iter);
-
-				read_files(voice_file, noise_file);
-
-				++voice_iter;
-			}
-
-			++noise_iter;
-		}
-
-		++iter;
-	}
+	/* calculate snr_ratios, read voice and noise files;
+	 * compute energy for voice files while reading them */
+	prepare_data();
 }

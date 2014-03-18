@@ -9,8 +9,9 @@
 #define SANCU_ADDER_HH_
 
 #include <string>
-#include <list>
 #include <vector>
+
+class SancuSignal;
 
 class SancuAdder
 {
@@ -18,7 +19,7 @@ class SancuAdder
 
 	SancuAdder(const std::string& _script_file);
 
-	~SancuAdder() {}
+	~SancuAdder();
 
 	void execute();
 
@@ -30,24 +31,24 @@ class SancuAdder
 	void parse_result(std::ifstream& fscript);
 	void parse_script_file();
 
-	void read_files(SndfileHandle& voice_file, SndfileHandle& noise_file);
+	void prepare_data();
+
+	void recalculate_data();
+
+	void modify_path(std::string& path, size_t noise_num, size_t snr_num);
 
 	std::string script_file;
-	std::list<std::string> voice_files;
-	std::list<std::string> noise_files;
-	std::list<std::string> result_files;
-	std::list<double> snr_levels;
 
-	std::vector<double*> voice_signal;
-	std::vector<double*> noise_signal;
+	std::vector<std::string> voice_files;
+	std::vector<std::string> noise_files;
 
-	double Esig;
-	double Enoise;
+	std::vector<double> snr_levels;
+	std::vector<double> snr_ratios;
 
-	double snr_ratio;
+	std::vector<SancuSignal*> voice_signals;
+	std::vector<SancuSignal*> noise_signals;
 
 	static const double SNR_CONST_RATIO = 10.0;
-	static const double BUFFER_SIZE = 1024;
 };
 
 #endif /* SANCU_ADDER_HH_ */
