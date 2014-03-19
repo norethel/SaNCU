@@ -36,12 +36,15 @@ class SancuSample
 	public:
 
 	double energy;
+	double mean;
+
 	std::vector<TSampleChunk> chunks;
 
 	SancuSample(std::vector<TSampleChunk>& _chunks);
 
 	private:
 
+	void compute_mean();
 	void compute_energy();
 };
 

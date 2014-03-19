@@ -127,8 +127,7 @@ void SancuAdder::prepare_data()
 	for (; iter != snr_levels.end(); ++iter)
 	{
 		snr_ratios.push_back(
-		        std::sqrt(
-		                std::pow(SNR_CONST_RATIO, (*iter / SNR_CONST_RATIO))));
+		        std::pow(SNR_CONST_RATIO, (*iter / SNR_CONST_RATIO)));
 	}
 
 	std::vector<std::string>::iterator voice_iter = voice_files.begin();
@@ -186,22 +185,24 @@ void SancuAdder::recalculate_data()
 				SancuSample noise_sample(chunks);
 
 				/* 3. compute SNR coefficient for current noise and voice */
-				double snr_level = ((*snr_iter) * noise_sample.energy)
-				        / voice_sig->energy;
+				double snr_level = std::sqrt(
+				        ((*snr_iter) * noise_sample.energy)
+				                / voice_sig->energy);
 
 				/* 4. multiply voice signal by calculated coefficient */
 				*voice_sig *= snr_level;
 
-				/* 5. add noise to voice signal */
-				*voice_sig += noise_sample;
-
 				std::cout << "Voice energy before recalculation: "
 				        << voice_sig->energy << std::endl;
 
+				voice_sig->compute_mean();
 				voice_sig->compute_energy();
 
 				std::cout << "Voice energy after recalculation: "
 				        << voice_sig->energy << std::endl;
+
+				/* 5. add noise to voice signal */
+				*voice_sig += noise_sample;
 
 				std::cout << "Noise sample energy: " << noise_sample.energy
 				        << std::endl;

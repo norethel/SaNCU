@@ -14,7 +14,8 @@
 
 class SancuSample;
 
-double compute_energy(const double* _buffer, const size_t& _length);
+double compute_energy(const double* _buffer, const size_t& _length,
+        const double& _mean);
 
 class SancuSignalChunk
 {
@@ -48,6 +49,7 @@ class SancuSignal
 
 	std::string path;
 	double energy;
+	double mean;
 
 	int format;
 	int channels;
@@ -65,6 +67,7 @@ class SancuSignal
 
 	void write_back();
 
+	void compute_mean();
 	void compute_energy();
 
 	private:

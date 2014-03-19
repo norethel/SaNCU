@@ -37,8 +37,10 @@ std::vector<TSampleChunk> SancuSampleReader::read(const size_t& _num_chunks,
 	return chunks;
 }
 
-SancuSample::SancuSample(std::vector<TSampleChunk>& _chunks) : chunks(_chunks)
+SancuSample::SancuSample(std::vector<TSampleChunk>& _chunks) :
+		chunks(_chunks)
 {
+	compute_mean();
 	compute_energy();
 }
 
@@ -48,6 +50,25 @@ void SancuSample::compute_energy()
 
 	for (; iter != chunks.end(); ++iter)
 	{
-		energy += ::compute_energy(iter->first->buffer, iter->second);
+		energy += ::compute_energy(iter->first->buffer, iter->second, mean);
 	}
+}
+
+void SancuSample::compute_mean()
+{
+	double sum = 0;
+	size_t total = 0;
+	std::vector<TSampleChunk>::iterator iter = chunks.begin();
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		for (size_t i = 0; i < iter->first->length; ++i)
+		{
+			sum += iter->first->buffer[i];
+		}
+
+		total += iter->first->length;
+	}
+
+	mean = sum / static_cast<double>(total);
 }

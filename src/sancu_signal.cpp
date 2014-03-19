@@ -6,13 +6,14 @@
 
 const size_t SancuSignalChunk::BUF_LEN = 1024;
 
-double compute_energy(const double* _buffer, const size_t& _length)
+double compute_energy(const double* _buffer, const size_t& _length,
+        const double& _mean)
 {
 	double energy = 0;
 
 	for (size_t i = 0; i < _length; ++i)
 	{
-		energy += std::pow(_buffer[i], 2.0);
+		energy += std::pow((_buffer[i] - _mean), 2.0);
 	}
 
 	return energy;
@@ -36,8 +37,9 @@ SancuSignal::SancuSignal(const std::string& _path, const bool& _compute_energy) 
 }
 
 SancuSignal::SancuSignal(const SancuSignal& _signal) :
-		path(_signal.path), energy(_signal.energy), format(_signal.format), channels(
-		        _signal.channels), samplerate(_signal.samplerate)
+		path(_signal.path), energy(_signal.energy), mean(_signal.mean), format(
+		        _signal.format), channels(_signal.channels), samplerate(
+		        _signal.samplerate)
 {
 	std::vector<SancuSignalChunk*>::const_iterator iter =
 	        _signal.chunks.begin();
@@ -111,6 +113,25 @@ void SancuSignal::write_back()
 	}
 }
 
+void SancuSignal::compute_mean()
+{
+	double sum = 0;
+	size_t total = 0;
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		for (size_t i = 0; i < (*iter)->length; ++i)
+		{
+			sum += (*iter)->buffer[i];
+		}
+
+		total += (*iter)->length;
+	}
+
+	mean = sum / static_cast<double>(total);
+}
+
 void SancuSignal::compute_energy()
 {
 	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
@@ -118,7 +139,7 @@ void SancuSignal::compute_energy()
 
 	for (; iter != chunks.end(); ++iter)
 	{
-		energy += ::compute_energy((*iter)->buffer, (*iter)->length);
+		energy += ::compute_energy((*iter)->buffer, (*iter)->length, mean);
 	}
 }
 
@@ -126,12 +147,14 @@ void SancuSignal::read_signal(const bool& _compute_energy)
 {
 	SndfileHandle file(path);
 	size_t read_bytes = 0;
+	size_t total_bytes = 0;
+	double sum = 0;
 
 	format = file.format();
 	channels = file.channels();
 	samplerate = file.samplerate();
 
-	std::cout << "start to reading file: " << path.c_str() << std::endl;
+	std::cout << "start reading file: " << path.c_str() << std::endl;
 	std::cout << "normalization is: " << file.command(SFC_GET_NORM_DOUBLE, 0, 0)
 	        << std::endl;
 
@@ -140,12 +163,16 @@ void SancuSignal::read_signal(const bool& _compute_energy)
 		double* buffer = new double[SancuSignalChunk::BUF_LEN];
 
 		read_bytes = file.read(buffer, SancuSignalChunk::BUF_LEN);
+		total_bytes += read_bytes;
 
 		if (read_bytes > 0)
 		{
 			if (_compute_energy)
 			{
-				energy += ::compute_energy(buffer, read_bytes);
+				for (size_t i = 0; i < read_bytes; ++i)
+				{
+					sum += buffer[i];
+				}
 			}
 
 			chunks.push_back(new SancuSignalChunk(buffer, read_bytes));
@@ -156,4 +183,11 @@ void SancuSignal::read_signal(const bool& _compute_energy)
 		}
 	}
 	while (read_bytes > 0);
+
+	if (_compute_energy)
+	{
+		mean = sum / static_cast<double>(total_bytes);
+
+		compute_energy();
+	}
 }
