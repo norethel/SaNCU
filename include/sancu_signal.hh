@@ -49,6 +49,10 @@ class SancuSignal
 	std::string path;
 	double energy;
 
+	int format;
+	int channels;
+	int samplerate;
+
 	std::vector<SancuSignalChunk*> chunks;
 
 	SancuSignal(const std::string& _path, const bool& _compute_energy = false);
@@ -58,6 +62,8 @@ class SancuSignal
 
 	SancuSignal& operator+=(const SancuSample& _sample);
 	SancuSignal& operator*=(const double& snr_level);
+
+	void write_back();
 
 	private:
 

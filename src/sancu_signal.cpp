@@ -35,7 +35,8 @@ SancuSignal::SancuSignal(const std::string& _path, const bool& _compute_energy) 
 }
 
 SancuSignal::SancuSignal(const SancuSignal& _signal) :
-		path(_signal.path), energy(_signal.energy)
+		path(_signal.path), energy(_signal.energy), format(_signal.format), channels(
+		        _signal.channels), samplerate(_signal.channels)
 {
 	std::vector<SancuSignalChunk*>::const_iterator iter =
 	        _signal.chunks.begin();
@@ -96,10 +97,27 @@ SancuSignal& SancuSignal::operator*=(const double& snr_level)
 	return *this;
 }
 
+void SancuSignal::write_back()
+{
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
+	SndfileHandle file(path, SFM_WRITE, format, channels, samplerate);
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		SancuSignalChunk* chunk = *iter;
+
+		file.write(chunk->buffer, chunk->length);
+	}
+}
+
 void SancuSignal::read_signal(const bool& _compute_energy)
 {
 	SndfileHandle file(path);
 	size_t read_bytes = 0;
+
+	format = file.format();
+	channels = file.channels();
+	samplerate = file.samplerate();
 
 	do
 	{

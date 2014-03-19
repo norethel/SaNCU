@@ -41,20 +41,17 @@ SancuAdder::~SancuAdder()
 
 void SancuAdder::parse_snr(std::string& _line)
 {
-	std::stringstream converter;
 	double snr;
-	char* current;
+	char* current = strtok(const_cast<char*>(_line.c_str()), ",");
 
-	_line = _line.substr(5, std::string::npos);
-
-	do
+	while (0 != current)
 	{
-		current = strtok(const_cast<char*>(_line.c_str()), ",");
-		converter << current;
+		std::stringstream converter(current);
 		converter >> snr;
 		snr_levels.push_back(snr);
+
+		current = strtok(0, ",");
 	}
-	while (0 != current);
 }
 
 void SancuAdder::parse_voice(std::ifstream& fscript)
@@ -127,7 +124,7 @@ void SancuAdder::prepare_data()
 {
 	std::vector<double>::iterator iter = snr_levels.begin();
 
-	while (iter != snr_levels.end())
+	for (; iter != snr_levels.end(); ++iter)
 	{
 		snr_ratios.push_back(
 		        std::pow(SNR_CONST_RATIO, (*iter / SNR_CONST_RATIO)));
@@ -135,18 +132,16 @@ void SancuAdder::prepare_data()
 
 	std::vector<std::string>::iterator voice_iter = voice_files.begin();
 
-	while (voice_iter != voice_files.end())
+	for (; voice_iter != voice_files.end(); ++voice_iter)
 	{
 		voice_signals.push_back(new SancuSignal(*voice_iter, true));
-		++voice_iter;
 	}
 
 	std::vector<std::string>::iterator noise_iter = noise_files.begin();
 
-	while (noise_iter != noise_files.end())
+	for (; noise_iter != noise_files.end(); ++noise_iter)
 	{
 		noise_signals.push_back(new SancuSignal(*noise_iter, false));
-		++noise_iter;
 	}
 }
 
@@ -154,13 +149,13 @@ void SancuAdder::recalculate_data()
 {
 	std::vector<double>::iterator snr_iter = snr_ratios.begin();
 	size_t snr_num = 0;
-	size_t noise_num = 0;
 
 	/* for every snr_ratio */
 	for (; snr_iter != snr_ratios.end(); ++snr_iter)
 	{
 		++snr_num;
 		std::vector<SancuSignal*>::iterator noise_iter = noise_signals.begin();
+		size_t noise_num = 0;
 
 		/* for every noise */
 		for (; noise_iter != noise_signals.end(); ++noise_iter)
@@ -175,6 +170,8 @@ void SancuAdder::recalculate_data()
 			for (; voice_iter != voice_signals.end(); ++voice_iter)
 			{
 				/* 1. copy the signal */
+				/* TODO: copy constructor is broken;
+				 * check why it copies too much data */
 				SancuSignal* voice_sig = new SancuSignal(**voice_iter);
 				/* modify output signal path */
 				modify_path(voice_sig->path, snr_num, noise_num);
@@ -183,23 +180,26 @@ void SancuAdder::recalculate_data()
 				size_t last_chunk_size = voice_sig->chunks.back()->length;
 
 				/* 2. read noise sample of the same length as current voice signal */
-				std::vector<TSampleChunk> chunks = noise_reader.read(num_chunks,
-				        last_chunk_size);
+				/*std::vector<TSampleChunk> chunks = noise_reader.read(num_chunks,
+				        last_chunk_size);*/
 
 				/* the constructor also computes the energy of the read noise sample */
-				SancuSample noise_sample(chunks);
+				/*SancuSample noise_sample(chunks);*/
 
 				/* 3. compute SNR coefficient for current noise and voice */
-				double snr_level = ((*snr_iter) * noise_sample.energy)
-				        / voice_sig->energy;
+				/*double snr_level = ((*snr_iter) * noise_sample.energy)
+				        / voice_sig->energy;*/
 
 				/* 4. multiply voice signal by calculated coefficient */
-				*voice_sig *= snr_level;
+				/**voice_sig *= snr_level;*/
 
 				/* 5. add noise to voice signal */
-				*voice_sig += noise_sample;
+				/**voice_sig += noise_sample;*/
 
 				/* write back the signal */
+				/* TODO: or... writing back is broken... check, analyze, debug,
+				 * or something... */
+				voice_sig->write_back();
 
 				/* delete current voice_sig */
 				delete voice_sig;
@@ -213,4 +213,6 @@ void SancuAdder::execute()
 	/* calculate snr_ratios, read voice and noise files;
 	 * compute energy for voice files while reading them */
 	prepare_data();
+
+	recalculate_data();
 }
