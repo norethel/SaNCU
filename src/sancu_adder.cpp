@@ -127,7 +127,8 @@ void SancuAdder::prepare_data()
 	for (; iter != snr_levels.end(); ++iter)
 	{
 		snr_ratios.push_back(
-		        std::pow(SNR_CONST_RATIO, (*iter / SNR_CONST_RATIO)));
+		        std::sqrt(
+		                std::pow(SNR_CONST_RATIO, (*iter / SNR_CONST_RATIO))));
 	}
 
 	std::vector<std::string>::iterator voice_iter = voice_files.begin();
@@ -170,8 +171,6 @@ void SancuAdder::recalculate_data()
 			for (; voice_iter != voice_signals.end(); ++voice_iter)
 			{
 				/* 1. copy the signal */
-				/* TODO: copy constructor is broken;
-				 * check why it copies too much data */
 				SancuSignal* voice_sig = new SancuSignal(**voice_iter);
 				/* modify output signal path */
 				modify_path(voice_sig->path, snr_num, noise_num);
@@ -180,25 +179,39 @@ void SancuAdder::recalculate_data()
 				size_t last_chunk_size = voice_sig->chunks.back()->length;
 
 				/* 2. read noise sample of the same length as current voice signal */
-				/*std::vector<TSampleChunk> chunks = noise_reader.read(num_chunks,
-				        last_chunk_size);*/
+				std::vector<TSampleChunk> chunks = noise_reader.read(num_chunks,
+				        last_chunk_size);
 
 				/* the constructor also computes the energy of the read noise sample */
-				/*SancuSample noise_sample(chunks);*/
+				SancuSample noise_sample(chunks);
 
 				/* 3. compute SNR coefficient for current noise and voice */
-				/*double snr_level = ((*snr_iter) * noise_sample.energy)
-				        / voice_sig->energy;*/
+				double snr_level = ((*snr_iter) * noise_sample.energy)
+				        / voice_sig->energy;
 
 				/* 4. multiply voice signal by calculated coefficient */
-				/**voice_sig *= snr_level;*/
+				*voice_sig *= snr_level;
 
 				/* 5. add noise to voice signal */
-				/**voice_sig += noise_sample;*/
+				*voice_sig += noise_sample;
+
+				std::cout << "Voice energy before recalculation: "
+				        << voice_sig->energy << std::endl;
+
+				voice_sig->compute_energy();
+
+				std::cout << "Voice energy after recalculation: "
+				        << voice_sig->energy << std::endl;
+
+				std::cout << "Noise sample energy: " << noise_sample.energy
+				        << std::endl;
+
+				double out_snr = 10
+				        * std::log10(voice_sig->energy / noise_sample.energy);
+
+				std::cout << "output SNR: " << out_snr << "dB" << std::endl;
 
 				/* write back the signal */
-				/* TODO: or... writing back is broken... check, analyze, debug,
-				 * or something... */
 				voice_sig->write_back();
 
 				/* delete current voice_sig */

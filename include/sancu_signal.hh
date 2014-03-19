@@ -65,6 +65,8 @@ class SancuSignal
 
 	void write_back();
 
+	void compute_energy();
+
 	private:
 
 	SancuSignal();
