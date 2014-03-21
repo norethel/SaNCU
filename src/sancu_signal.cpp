@@ -143,6 +143,33 @@ void SancuSignal::compute_energy()
 	}
 }
 
+void SancuSignal::normalize()
+{
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
+	double min = 0;
+	double max = 0;
+	const double a = -1.0;
+	const double b = 1.0;
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		for (size_t i = 0; i < (*iter)->length; ++i)
+		{
+			min = (min > (*iter)->buffer[i]) ? (*iter)->buffer[i] : min;
+			max = (max < (*iter)->buffer[i]) ? (*iter)->buffer[i] : max;
+		}
+	}
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		for (size_t i = 0; i < (*iter)->length; ++i)
+		{
+			(*iter)->buffer[i] = a
+			        + (((*iter)->buffer[i] - min) * (b - a)) / (max - min);
+		}
+	}
+}
+
 void SancuSignal::read_signal(const bool& _compute_energy)
 {
 	SndfileHandle file(path);

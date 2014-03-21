@@ -29,6 +29,7 @@ class SancuAdder
 	void parse_voice(std::ifstream& fscript);
 	void parse_noise(std::ifstream& fscript);
 	void parse_result(std::ifstream& fscript);
+	void parse_output_path(std::string& _line);
 	void parse_script_file();
 
 	void prepare_data();
@@ -38,6 +39,7 @@ class SancuAdder
 	void modify_path(std::string& path, size_t noise_num, size_t snr_num);
 
 	std::string script_file;
+	std::string output_path;
 
 	std::vector<std::string> voice_files;
 	std::vector<std::string> noise_files;

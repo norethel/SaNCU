@@ -76,6 +76,16 @@ void SancuAdder::parse_noise(std::ifstream& fscript)
 	}
 }
 
+void SancuAdder::parse_output_path(std::string& _line)
+{
+	output_path = _line;
+
+	if ('/' != output_path[output_path.length() - 1])
+	{
+		output_path += '/';
+	}
+}
+
 void SancuAdder::parse_script_file()
 {
 	std::ifstream fscript(script_file.c_str());
@@ -98,6 +108,13 @@ void SancuAdder::parse_script_file()
 		{
 			parse_noise(fscript);
 		}
+		else if (std::string::npos != line.find("<output_path>"))
+		{
+			if (std::getline(fscript, line))
+			{
+				parse_output_path(line);
+			}
+		}
 		else
 		{
 			std::cout << "parse warning: unknown line:" << std::endl;
@@ -113,6 +130,17 @@ void SancuAdder::modify_path(std::string& path, size_t snr_num,
 {
 	std::stringstream ss;
 	std::string postfix;
+
+	size_t slash_pos = path.find_last_of('/');
+
+	/* long path found */
+	if (std::string::npos != slash_pos)
+	{
+		/* extract only filename */
+		path = path.substr(slash_pos + 1);
+	}
+
+	path.insert(0, output_path);
 
 	ss << "_" << snr_num << "_" << noise_num;
 	ss >> postfix;
@@ -192,6 +220,9 @@ void SancuAdder::recalculate_data()
 				/* 4. multiply voice signal by calculated coefficient */
 				*voice_sig *= snr_level;
 
+				/* normalize after multiplication */
+				voice_sig->normalize();
+
 				std::cout << "Voice energy before recalculation: "
 				        << voice_sig->energy << std::endl;
 
@@ -211,6 +242,9 @@ void SancuAdder::recalculate_data()
 				        * std::log10(voice_sig->energy / noise_sample.energy);
 
 				std::cout << "output SNR: " << out_snr << "dB" << std::endl;
+
+				/* normalize recalculated data */
+				voice_sig->normalize();
 
 				/* write back the signal */
 				voice_sig->write_back();

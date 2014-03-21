@@ -70,6 +70,8 @@ class SancuSignal
 	void compute_mean();
 	void compute_energy();
 
+	void normalize();
+
 	private:
 
 	SancuSignal();
