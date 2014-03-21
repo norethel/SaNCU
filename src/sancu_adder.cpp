@@ -197,8 +197,9 @@ void SancuAdder::recalculate_data()
 			/* for every voice signal */
 			for (; voice_iter != voice_signals.end(); ++voice_iter)
 			{
-				/* 1. copy the signal */
+				/* take signal */
 				SancuSignal* voice_sig = new SancuSignal(**voice_iter);
+
 				/* modify output signal path */
 				modify_path(voice_sig->path, snr_num, noise_num);
 
@@ -212,44 +213,36 @@ void SancuAdder::recalculate_data()
 				/* the constructor also computes the energy of the read noise sample */
 				SancuSample noise_sample(chunks);
 
-				/* 3. compute SNR coefficient for current noise and voice */
+				/* 3. compute SNR coefficient for current noise level adjustment */
 				double snr_level = std::sqrt(
-				        ((*snr_iter) * noise_sample.energy)
-				                / voice_sig->energy);
+				        voice_sig->energy
+				                / ((*snr_iter) * noise_sample.energy));
 
-				/* 4. multiply voice signal by calculated coefficient */
-				*voice_sig *= snr_level;
+				/* 4. multiply noise signal by calculated coefficient */
+				noise_sample *= snr_level;
 
-				/* normalize after multiplication */
-				voice_sig->normalize();
+				std::cout << "Noise energy before recalculation: "
+				        << noise_sample.energy << std::endl;
 
-				std::cout << "Voice energy before recalculation: "
-				        << voice_sig->energy << std::endl;
+				noise_sample.compute_mean();
+				noise_sample.compute_energy();
 
-				voice_sig->compute_mean();
-				voice_sig->compute_energy();
-
-				std::cout << "Voice energy after recalculation: "
-				        << voice_sig->energy << std::endl;
+				std::cout << "Noise energy after recalculation: "
+				        << noise_sample.energy << std::endl;
 
 				/* 5. add noise to voice signal */
 				*voice_sig += noise_sample;
 
-				std::cout << "Noise sample energy: " << noise_sample.energy
-				        << std::endl;
+				std::cout << "Voice energy: " << voice_sig->energy << std::endl;
 
 				double out_snr = 10
 				        * std::log10(voice_sig->energy / noise_sample.energy);
 
 				std::cout << "output SNR: " << out_snr << "dB" << std::endl;
 
-				/* normalize recalculated data */
-				voice_sig->normalize();
-
 				/* write back the signal */
 				voice_sig->write_back();
 
-				/* delete current voice_sig */
 				delete voice_sig;
 			}
 		}

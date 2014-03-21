@@ -38,11 +38,12 @@ class SancuSample
 	double energy;
 	double mean;
 
-	std::vector<TSampleChunk> chunks;
+	std::vector<SancuSignalChunk*> chunks;
 
 	SancuSample(std::vector<TSampleChunk>& _chunks);
+	~SancuSample();
 
-	private:
+	SancuSample& operator*=(const double& snr_level);
 
 	void compute_mean();
 	void compute_energy();

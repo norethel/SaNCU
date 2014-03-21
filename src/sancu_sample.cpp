@@ -37,20 +37,59 @@ std::vector<TSampleChunk> SancuSampleReader::read(const size_t& _num_chunks,
 	return chunks;
 }
 
-SancuSample::SancuSample(std::vector<TSampleChunk>& _chunks) :
-		chunks(_chunks)
+SancuSample::SancuSample(std::vector<TSampleChunk>& _chunks)
 {
+	std::vector<TSampleChunk>::iterator iter = _chunks.begin();
+
+	for (; iter != _chunks.end(); ++iter)
+	{
+		double* buffer = new double[iter->second];
+
+		for (size_t i = 0; i < iter->second; ++i)
+		{
+			buffer[i] = iter->first->buffer[i];
+		}
+
+		chunks.push_back(new SancuSignalChunk(buffer, iter->second));
+	}
+
 	compute_mean();
 	compute_energy();
 }
 
-void SancuSample::compute_energy()
+SancuSample::~SancuSample()
 {
-	std::vector<TSampleChunk>::iterator iter = chunks.begin();
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
 
 	for (; iter != chunks.end(); ++iter)
 	{
-		energy += ::compute_energy(iter->first->buffer, iter->second, mean);
+		delete *iter;
+	}
+}
+
+SancuSample& SancuSample::operator*=(const double& snr_level)
+{
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		for (size_t i = 0; i < (*iter)->length; ++i)
+		{
+			(*iter)->buffer[i] *= snr_level;
+		}
+	}
+
+	return *this;
+}
+
+void SancuSample::compute_energy()
+{
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
+	energy = 0;
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		energy += ::compute_energy((*iter)->buffer, (*iter)->length, mean);
 	}
 }
 
@@ -58,16 +97,16 @@ void SancuSample::compute_mean()
 {
 	double sum = 0;
 	size_t total = 0;
-	std::vector<TSampleChunk>::iterator iter = chunks.begin();
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
 
 	for (; iter != chunks.end(); ++iter)
 	{
-		for (size_t i = 0; i < iter->first->length; ++i)
+		for (size_t i = 0; i < (*iter)->length; ++i)
 		{
-			sum += iter->first->buffer[i];
+			sum += (*iter)->buffer[i];
 		}
 
-		total += iter->first->length;
+		total += (*iter)->length;
 	}
 
 	mean = sum / static_cast<double>(total);

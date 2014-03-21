@@ -63,7 +63,7 @@ SancuSignal::~SancuSignal()
 SancuSignal& SancuSignal::operator+=(const SancuSample& _sample)
 {
 	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
-	std::vector<TSampleChunk>::const_iterator sample_iter =
+	std::vector<SancuSignalChunk*>::const_iterator sample_iter =
 	        _sample.chunks.begin();
 
 	for (; iter != chunks.end() && sample_iter != _sample.chunks.end();
@@ -71,7 +71,7 @@ SancuSignal& SancuSignal::operator+=(const SancuSample& _sample)
 	{
 		size_t length = (*iter)->length;
 		double* buffer1 = (*iter)->buffer;
-		double* buffer2 = sample_iter->first->buffer;
+		double* buffer2 = (*sample_iter)->buffer;
 
 		for (size_t i = 0; i < length; ++i)
 		{
