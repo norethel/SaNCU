@@ -125,8 +125,8 @@ void SancuAdder::parse_script_file()
 	fscript.close();
 }
 
-void SancuAdder::modify_path(std::string& path, size_t snr_num,
-        size_t noise_num)
+void SancuAdder::modify_path(std::string& path, size_t noise_num,
+        size_t snr_num)
 {
 	std::stringstream ss;
 	std::string postfix;
@@ -142,7 +142,7 @@ void SancuAdder::modify_path(std::string& path, size_t snr_num,
 
 	path.insert(0, output_path);
 
-	ss << "_" << snr_num << "_" << noise_num;
+	ss << "_" << noise_num << "_" << snr_num;
 	ss >> postfix;
 
 	path.insert(path.length() - 4, postfix);
@@ -175,50 +175,50 @@ void SancuAdder::prepare_data()
 
 void SancuAdder::recalculate_data()
 {
-	std::vector<double>::iterator snr_iter = snr_ratios.begin();
-	size_t snr_num = 0;
+	size_t noise_num = 0;
+	std::vector<SancuSignal*>::iterator noise_iter = noise_signals.begin();
 
-	/* for every snr_ratio */
-	for (; snr_iter != snr_ratios.end(); ++snr_iter)
+	/* for every noise signal */
+	for (; noise_iter != noise_signals.end(); ++noise_iter)
 	{
-		++snr_num;
-		std::vector<SancuSignal*>::iterator noise_iter = noise_signals.begin();
-		size_t noise_num = 0;
+		++noise_num;
+		SancuSampleReader noise_reader(*noise_iter);
+		std::vector<SancuSignal*>::iterator voice_iter = voice_signals.begin();
 
-		/* for every noise */
-		for (; noise_iter != noise_signals.end(); ++noise_iter)
+		/* for every voice */
+		for (; voice_iter != voice_signals.end(); ++voice_iter)
 		{
-			SancuSampleReader noise_reader(*noise_iter);
-			++noise_num;
+			size_t num_chunks = (*voice_iter)->chunks.size();
+			size_t last_chunk_size = (*voice_iter)->chunks.back()->length;
 
-			std::vector<SancuSignal*>::iterator voice_iter =
-			        voice_signals.begin();
+			/* read noise sample of the same length as current voice signal */
+			std::vector<TSampleChunk> chunks = noise_reader.read(num_chunks,
+			        last_chunk_size);
 
-			/* for every voice signal */
-			for (; voice_iter != voice_signals.end(); ++voice_iter)
+			size_t snr_num = 0;
+			std::vector<double>::iterator snr_iter = snr_ratios.begin();
+
+			/* for every snr_ratio */
+			for (; snr_iter != snr_ratios.end(); ++snr_iter)
 			{
-				/* take signal */
+				++snr_num;
+
+				/* copy base signal */
 				SancuSignal* voice_sig = new SancuSignal(**voice_iter);
 
 				/* modify output signal path */
-				modify_path(voice_sig->path, snr_num, noise_num);
+				modify_path(voice_sig->path, noise_num, snr_num);
 
-				size_t num_chunks = voice_sig->chunks.size();
-				size_t last_chunk_size = voice_sig->chunks.back()->length;
-
-				/* 2. read noise sample of the same length as current voice signal */
-				std::vector<TSampleChunk> chunks = noise_reader.read(num_chunks,
-				        last_chunk_size);
-
-				/* the constructor also computes the energy of the read noise sample */
+				/* the constructor copies buffer data,
+				 * and also computes the energy of the read noise sample */
 				SancuSample noise_sample(chunks);
 
-				/* 3. compute SNR coefficient for current noise level adjustment */
+				/* compute SNR coefficient for current noise level adjustment */
 				double snr_level = std::sqrt(
 				        voice_sig->energy
 				                / ((*snr_iter) * noise_sample.energy));
 
-				/* 4. multiply noise signal by calculated coefficient */
+				/* multiply noise signal by calculated coefficient */
 				noise_sample *= snr_level;
 
 				std::cout << "Noise energy before recalculation: "
@@ -230,7 +230,7 @@ void SancuAdder::recalculate_data()
 				std::cout << "Noise energy after recalculation: "
 				        << noise_sample.energy << std::endl;
 
-				/* 5. add noise to voice signal */
+				/* add noise to voice signal */
 				*voice_sig += noise_sample;
 
 				std::cout << "Voice energy: " << voice_sig->energy << std::endl;
