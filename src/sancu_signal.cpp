@@ -34,6 +34,7 @@ SancuSignal::SancuSignal(const std::string& _path, const bool& _compute_energy) 
 		path(_path), energy(0)
 {
 	read_signal(_compute_energy);
+	prepare_fader();
 }
 
 SancuSignal::SancuSignal(const SancuSignal& _signal) :
@@ -48,6 +49,8 @@ SancuSignal::SancuSignal(const SancuSignal& _signal) :
 	{
 		chunks.push_back(new SancuSignalChunk(**iter));
 	}
+
+	prepare_fader();
 }
 
 SancuSignal::~SancuSignal()
@@ -172,6 +175,37 @@ void SancuSignal::normalize()
 	}
 }
 
+void SancuSignal::fadein()
+{
+	double* buffer = chunks.front()->buffer;
+
+	for (size_t i = 0; i < FADE_SAMPLES_NUM; ++i)
+	{
+		buffer[i] = buffer[i] * fader[i];
+	}
+}
+
+void SancuSignal::fadeout()
+{
+	double* buffer = chunks.back()->buffer;
+
+	if (FADE_SAMPLES_NUM > chunks.back()->length)
+	{
+		delete[] chunks.back();
+		chunks.pop_back();
+
+		buffer = chunks.back()->buffer;
+	}
+
+	size_t pos = chunks.back()->length - 1;
+
+	for (size_t i = 0; i < FADE_SAMPLES_NUM; ++i)
+	{
+		buffer[pos] = buffer[pos] * fader[i];
+		--pos;
+	}
+}
+
 void SancuSignal::read_signal(const bool& _compute_energy)
 {
 	SndfileHandle file(path);
@@ -208,5 +242,21 @@ void SancuSignal::read_signal(const bool& _compute_energy)
 	{
 		compute_mean();
 		compute_energy();
+	}
+}
+
+void SancuSignal::prepare_fader()
+{
+	for (size_t i = 0; i <= FADE_SAMPLES_NUM; ++i)
+	{
+		fader[i] = std::log(1.0 + (((EULER - 1.0) / FADE_SAMPLES_NUM) * i));
+	}
+
+	/* perform normalization to prevent from double precision error! */
+	for (size_t i = 0; i < FADE_SAMPLES_NUM; ++i)
+	{
+		/*normalize to scope of [0,1]: x = (x - min) / (max - min)*/
+		fader[i] = (fader[i] - fader[0])
+		        / (fader[FADE_SAMPLES_NUM - 1] - fader[0]);
 	}
 }

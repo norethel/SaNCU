@@ -240,6 +240,11 @@ void SancuAdder::recalculate_data()
 
 				std::cout << "output SNR: " << out_snr << "dB" << std::endl;
 
+				/* adjust voice signal to begin from 0 */
+				voice_sig->fadein();
+				/* adjust voice signal to end at 0 */
+				voice_sig->fadeout();
+
 				/* write back the signal */
 				voice_sig->write_back();
 

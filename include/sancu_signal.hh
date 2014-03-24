@@ -47,6 +47,11 @@ class SancuSignal
 {
 	public:
 
+	const static size_t FADE_SAMPLES_NUM = 6;
+	const static double EULER = 2.71828;
+
+	double fader[FADE_SAMPLES_NUM + 1];
+
 	std::string path;
 	double energy;
 	double mean;
@@ -72,11 +77,16 @@ class SancuSignal
 
 	void normalize();
 
+	void fadein();
+	void fadeout();
+
 	private:
 
 	SancuSignal();
 
 	void read_signal(const bool& _compute_energy);
+
+	void prepare_fader();
 };
 
 #endif /* SANCU_SIGNAL_HH_ */
