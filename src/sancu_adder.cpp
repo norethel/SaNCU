@@ -245,6 +245,8 @@ void SancuAdder::recalculate_data()
 				/* adjust voice signal to end at 0 */
 				voice_sig->fadeout();
 
+				voice_sig->normalize();
+
 				/* write back the signal */
 				voice_sig->write_back();
 

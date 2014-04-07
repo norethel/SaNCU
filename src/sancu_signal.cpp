@@ -191,7 +191,7 @@ void SancuSignal::fadeout()
 
 	if (FADE_SAMPLES_NUM > chunks.back()->length)
 	{
-		delete[] chunks.back();
+		delete chunks.back();
 		chunks.pop_back();
 
 		buffer = chunks.back()->buffer;
