@@ -165,6 +165,8 @@ void SancuSignal::normalize()
 		}
 	}
 
+	iter = chunks.begin();
+
 	for (; iter != chunks.end(); ++iter)
 	{
 		for (size_t i = 0; i < (*iter)->length; ++i)
@@ -216,8 +218,6 @@ void SancuSignal::read_signal(const bool& _compute_energy)
 	samplerate = file.samplerate();
 
 	std::cout << "start reading file: " << path.c_str() << std::endl;
-	std::cout << "normalization is: " << file.command(SFC_GET_NORM_DOUBLE, 0, 0)
-	        << std::endl;
 
 	do
 	{
