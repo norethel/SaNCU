@@ -85,6 +85,24 @@ SancuSignal& SancuSignal::operator+=(const SancuSample& _sample)
 	return *this;
 }
 
+SancuSignal& SancuSignal::operator-=(const double& value)
+{
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
+
+		for (; iter != chunks.end(); ++iter)
+		{
+			double* buffer = (*iter)->buffer;
+			size_t length = (*iter)->length;
+
+			for (size_t i = 0; i < length; ++i)
+			{
+				buffer[i] -= value;
+			}
+		}
+
+		return *this;
+}
+
 SancuSignal& SancuSignal::operator*=(const double& snr_level)
 {
 	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
@@ -107,8 +125,6 @@ void SancuSignal::write_back()
 {
 	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
 	SndfileHandle file(path, SFM_WRITE, format, channels, samplerate);
-
-	normalize();
 
 	for (; iter != chunks.end(); ++iter)
 	{
@@ -208,6 +224,29 @@ void SancuSignal::fadeout()
 	}
 }
 
+double SancuSignal::getAbsMax()
+{
+	double result = 1.0;
+	double abs = 0;
+
+	std::vector<SancuSignalChunk*>::iterator iter = chunks.begin();
+
+	for (; iter != chunks.end(); ++iter)
+	{
+		for (size_t i = 0; i < (*iter)->length; ++i)
+		{
+			abs = fabs((*iter)->buffer[i]);
+
+			if (result < abs)
+			{
+				result = abs;
+			}
+		}
+	}
+
+	return result;
+}
+
 void SancuSignal::read_signal(const bool& _compute_energy)
 {
 	SndfileHandle file(path);
@@ -247,7 +286,7 @@ void SancuSignal::read_signal(const bool& _compute_energy)
 
 void SancuSignal::prepare_fader()
 {
-	for (size_t i = 0; i <= FADE_SAMPLES_NUM; ++i)
+	for (size_t i = 0; i < FADE_SAMPLES_NUM; ++i)
 	{
 		fader[i] = std::log(1.0 + (((EULER - 1.0) / FADE_SAMPLES_NUM) * i));
 	}

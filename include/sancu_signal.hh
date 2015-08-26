@@ -50,7 +50,7 @@ class SancuSignal
 	const static size_t FADE_SAMPLES_NUM = 6;
 	const static double EULER = 2.71828;
 
-	double fader[FADE_SAMPLES_NUM + 1];
+	double fader[FADE_SAMPLES_NUM];
 
 	std::string path;
 	double energy;
@@ -68,6 +68,7 @@ class SancuSignal
 	~SancuSignal();
 
 	SancuSignal& operator+=(const SancuSample& _sample);
+	SancuSignal& operator-=(const double& value);
 	SancuSignal& operator*=(const double& snr_level);
 
 	void write_back();
@@ -79,6 +80,8 @@ class SancuSignal
 
 	void fadein();
 	void fadeout();
+
+	double getAbsMax();
 
 	private:
 

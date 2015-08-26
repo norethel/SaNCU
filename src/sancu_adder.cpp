@@ -240,6 +240,18 @@ void SancuAdder::recalculate_data()
 
 				std::cout << "output SNR: " << out_snr << "dB" << std::endl;
 
+				voice_sig->normalize();
+				// calculate DC offset
+				voice_sig->compute_mean();
+
+				// remove DC offset
+				*voice_sig -= voice_sig->mean;
+
+				double max = voice_sig->getAbsMax();
+				double snr = 1.0 / max;
+
+				*voice_sig *= snr;
+
 				/* adjust voice signal to begin from 0 */
 				voice_sig->fadein();
 				/* adjust voice signal to end at 0 */
